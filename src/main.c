@@ -46,8 +46,6 @@ void myGPIOA_Init(void);
 void myTIM2_Init(void);
 void myEXTI_Init(void);
 
-// Your global variables...
-
 int
 main(int argc, char* argv[])
 {
@@ -165,28 +163,10 @@ void TIM2_IRQHandler()
 /* This handler is declared in system/src/cmsis/vectors_stm32f0xx.c */
 void EXTI0_1_IRQHandler()
 {
-	// Your local variables...
-
 	/* Check if EXTI1 interrupt pending flag is indeed set */
 	if ((EXTI->PR & EXTI_PR_PR1) != 0)
 	{
-		//
-		// 1. If this is the first edge:
-		//	- Clear count register (TIM2->CNT).
-		//	- Start timer (TIM2->CR1).
-		//    Else (this is the second edge):
-		//	- Stop timer (TIM2->CR1).
-		//	- Read out count register (TIM2->CNT).
-		//	- Calculate signal period and frequency.
-		//	- Print calculated values to the console.
-		//	  NOTE: Function trace_printf does not work
-		//	  with floating-point numbers: you must use
-		//	  "unsigned int" type to print your signal
-		//	  period and frequency.
-		//
-		// 2. Clear EXTI1 interrupt pending flag (EXTI->PR).
-		//
-
+		// timer will be disabled for first edge and enabled on second
 		uint16_t isTimerEnabled = (TIM2->CR1 & TIM_CR1_CEN);
 
 		if (isTimerEnabled) {
@@ -205,7 +185,7 @@ void EXTI0_1_IRQHandler()
 			TIM2->CR1 |= TIM_CR1_CEN;
 		}
 
-		// clear EXTI flag
+		// clear EXTI interrupt pending flag
 		EXTI->PR |= EXTI_PR_PR1;
 	}
 }
