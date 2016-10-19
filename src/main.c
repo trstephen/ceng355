@@ -36,6 +36,9 @@
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
 #pragma GCC diagnostic ignored "-Wreturn-type"
 
+#ifndef VERBOSE
+#define VERBOSE 0
+#endif
 
 /* Clock prescaler for TIM2 timer: no prescaling */
 #define myTIM2_PRESCALER ((uint16_t)0x0000)
@@ -50,8 +53,8 @@ int
 main(int argc, char* argv[])
 {
 
-	trace_printf("This is Part 2 of Introductory Lab...\n");
-	trace_printf("System clock: %u Hz\n", SystemCoreClock);
+	trace_printf("Welcome to the final project.\n");
+	if (VERBOSE) trace_printf("System clock: %u Hz\n", SystemCoreClock);
 
 	myGPIOA_Init();		/* Initialize I/O port PA */
 	myTIM2_Init();		/* Initialize timer TIM2 */
@@ -176,8 +179,8 @@ void EXTI0_1_IRQHandler()
 			float sigFreq = ((float)SystemCoreClock) / count;
 			float sigPeriod = 1 / sigFreq;
 
-			trace_printf("Signal Freq:   %f Hz\n", sigFreq);
-			trace_printf("Signal Period: %f s\n\n", sigPeriod);
+			if (VERBOSE)trace_printf("Signal Freq:   %f Hz\n", sigFreq);
+			if (VERBOSE)trace_printf("Signal Period: %f s\n\n", sigPeriod);
 
 		} else {
 			// reset & start timer
