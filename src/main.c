@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include "diag/Trace.h"
 #include "cmsis/cmsis_device.h"
+#include "lcd.h"
 
 // ----------------------------------------------------------------------------
 //
@@ -56,6 +57,7 @@ main(int argc, char* argv[])
 	myGPIOA_Init();		/* Initialize I/O port PA */
 	myTIM2_Init();		/* Initialize timer TIM2 */
 	myEXTI_Init();		/* Initialize EXTI */
+	LCD_Init();
 
 	while (1)
 	{
