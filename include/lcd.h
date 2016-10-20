@@ -28,7 +28,7 @@ void mySPI_Init(void);
 void HC595_Write(uint8_t word);
 
 // Write 8b word to an LCD configured for 4b input using shift register
-// @param type: Can be HC595_COMMAND or HC595_DATA
+// @param type: Can be LCD_COMMAND or LCD_DATA
 void LCD_SendWord(uint8_t type, uint8_t word);
 
 // True if SPI can accept data to send
