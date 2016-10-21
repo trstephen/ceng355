@@ -1,7 +1,10 @@
 #ifndef __LCD_H
 #define __LCD_H
 
-// Maps to EN and R/S bits for LCD
+// Pin configuration, must be on GPIOB
+#define LCD_LCK_PIN (GPIO_Pin_4)
+
+// Maps to EN and RS bits for LCD
 #define LCD_ENABLE (0x80)
 #define LCD_DISABLE (0x0)
 #define LCD_COMMAND (0x0)

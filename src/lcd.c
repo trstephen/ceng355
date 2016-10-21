@@ -11,13 +11,18 @@ void LCD_Init(void){
     mySPI_Init();
 
     // Configure the internal LCD controls
+    //
     // PBMCUSLK has a shift register connected to the LCD like:
-    //    Q7  Q6  Q5  Q4  |  Q3  Q2  Q1  Q0
-    //    =================================
-    //    EN  R/S NC  NC  |  D7  D6  D5  D4
+    //
+    //    ______________HC 595______________
+    //    | Q7  Q6  Q5  Q4  Q3  Q2  Q1  Q0 |  0   0   0   0
+    //    |=|===|===|===|===|===|===|===|==‾‾‾|‾‾‾|‾‾‾|‾‾‾|‾‾|
+    //    | EN  RS  NC  NC  D7  D6  D5  D4    D3  D2  D1  D0 |
+    //    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾HD44780 LCD Controller‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+    //
     // When the LCD is initialized it's working in 8bit word mode.
     // The PBMCUSLK will interpret the 8bit word sent by SPI according to
-    // the above diagram and D3->D0 = 0. The first thing we have to do is
+    // the above diagram where D3->D0 = 0. The first thing we have to do is
     // shift into 4b mode operation so we can ignore D3->D0.
     // We can't use LCD_SendWord now since it's written with the assumption
     // we're in 4b mode.
@@ -27,22 +32,16 @@ void LCD_Init(void){
     HC595_Write(LCD_DISABLE | LCD_COMMAND | set4bMode);
 
     // Now do the rest of the LCD config
-    // 4 bits, 2 lines, 5x7 font
-    LCD_SendWord(LCD_COMMAND, 0x28);
-
-    // Display ON, No cursors
-    LCD_SendWord(LCD_COMMAND, 0x0E);
-
-    // Entry mode: Increment, No Display shifting
-    LCD_SendWord(LCD_COMMAND, 0x06);
-
-    // Clear display
-    LCD_SendWord(LCD_COMMAND, 0x01);
+    // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Instruction_set
+    LCD_SendWord(LCD_COMMAND, 0x28); /* 4 bits, 2 lines, 5x7 font */
+    LCD_SendWord(LCD_COMMAND, 0x0E); /* Display on, Show cursor, No blink */
+    LCD_SendWord(LCD_COMMAND, 0x06); /* Cursor increment, No display shifting */
+    LCD_SendWord(LCD_COMMAND, 0x01); /* Clear display */
 
     // Write the initial units and resistance / freq placeholders manually instead
     // of trying to pass non-int values through the number printing functions
-    //  ?.?    Ω
-    //  ?.?    H
+    //    ???  Ω
+    //    ???  H
     // TODO: Ω and H are static, so draw them in place
 }
 
@@ -60,9 +59,8 @@ void myGPIOB_Init(void){
     GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // PB4 will be manually toggled to control the output update on the shift register.
-    // This will expose the contents of the register to the LCD controller.
-    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_4;
+    // Configure the LCK pin for "manual" control in HC595_Write
+    GPIO_InitStruct.GPIO_Pin = LCD_LCK_PIN;
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
@@ -95,20 +93,22 @@ void HC595_Write(uint8_t word){
     // or not the register output tracks its current contents
 
     // Don't update the register output; LCK = 0
-    GPIOB->BRR = GPIO_Pin_4;
+    GPIOB->BRR = LCD_LCK_PIN;
 
     // Poll SPI until its ready to receive more data
     while (!SPI_ReadyToSend()) {
+        /* polling... */
     };
 
     SPI_SendData8(SPI1, word);
 
     // Poll SPI to determine when it's finished transmitting
     while (!SPI_DoneSending()) {
+        /* polling... */
     };
 
     // Update the output; LCK = 1
-    GPIOB->BSRR = GPIO_Pin_4;
+    GPIOB->BSRR = LCD_LCK_PIN;
 }
 
 uint8_t SPI_ReadyToSend(void){
@@ -123,7 +123,7 @@ uint8_t SPI_DoneSending(void){
 }
 
 void LCD_SendWord(uint8_t type, uint8_t word){
-    // The high half of the register output is always reserved for EN and R/S.
+    // The high half of the register output is always reserved for EN and RS.
     // To send an 8b target word we have to send it as two sequential 4b half-words,
     // with the target half-words occupying the lower half of the word.
 
