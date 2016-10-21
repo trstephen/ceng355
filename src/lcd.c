@@ -10,6 +10,11 @@ void LCD_Init(void){
     myGPIOB_Init();
     mySPI_Init();
 
+    // We'll need the delay timer to wait for some operations (clear) to
+    // complete on the LCD. The sane way to do this is to read the LCD status
+    // but the PBMCUSLK hard-wires the LCD to write mode :(
+    DELAY_Init();
+
     // Configure the internal LCD controls
     //
     // PBMCUSLK has a shift register connected to the LCD like:
@@ -36,13 +41,24 @@ void LCD_Init(void){
     LCD_SendWord(LCD_COMMAND, 0x28); /* 4 bits, 2 lines, 5x7 font */
     LCD_SendWord(LCD_COMMAND, 0x0E); /* Display on, Show cursor, No blink */
     LCD_SendWord(LCD_COMMAND, 0x06); /* Cursor increment, No display shifting */
-    LCD_SendWord(LCD_COMMAND, 0x01); /* Clear display */
+    LCD_Clear();
 
-    // Write the initial units and resistance / freq placeholders manually instead
-    // of trying to pass non-int values through the number printing functions
-    //    ???  Ω
-    //    ???  H
-    // TODO: Ω and H are static, so draw them in place
+    // Write the initial units and resistance / freq placeholders manually
+    //   "  ???  Ω"
+    //   "  ???  H"
+    LCD_MoveCursor(1, 3);
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_MoveCursor(1, 8);
+    LCD_SendWord(LCD_DATA, CHAR_OMEGA);
+
+    LCD_MoveCursor(2, 3);
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_MoveCursor(2, 8);
+    LCD_SendASCIIChar("H");
 }
 
 void myGPIOB_Init(void){
@@ -137,5 +153,103 @@ void LCD_SendWord(uint8_t type, uint8_t word){
     HC595_Write(LCD_DISABLE | type | low);
     HC595_Write(LCD_ENABLE | type | low);
     HC595_Write(LCD_DISABLE | type | low);
+}
+
+void LCD_SendASCIIChar(char* character){
+    LCD_SendWord(LCD_DATA, (uint8_t)(*character));
+}
+
+void LCD_SendDigit(uint8_t digit){
+    // Enforce range of 0:9
+    uint8_t safeDigit = 0;
+    if (digit > 9){
+        safeDigit = 9;
+    } else {
+        safeDigit = digit;
+    }
+
+    // Digits on the ASCII table are mapped like:
+    //   0x30 -> 0
+    //   0x31 -> 1
+    //   ...
+    //   0x39 -> 9
+    uint8_t asciiDigit = 0x30 + safeDigit;
+
+    LCD_SendWord(LCD_DATA, asciiDigit);
+}
+
+void LCD_MoveCursor(uint8_t row, uint8_t col){
+    // We only have 2 rows so cap the selected row at 2
+    uint8_t rowOffset = 0x0;
+    if (row <= 1) {
+        rowOffset = LCD_FIRST_ROW_OFFSET;
+    } else {
+        rowOffset = LCD_SECOND_ROW_OFFSET;
+    }
+
+    // Similarly, constrain allowed column input values to 1:8
+    // and then shift for 0-indexing on the LCD
+    uint8_t colOffset = 0x0;
+    if (col == 0) {
+        colOffset = 0x0;
+    } else if (col > 0 && col < 8) {
+        colOffset = col - 1;
+    } else {
+        // Constrain >8 to last column
+        colOffset = 0x7;
+    }
+
+    uint8_t moveCursorCommand = LCD_MOVE_CURSOR_CMD | rowOffset | colOffset;
+
+    LCD_SendWord(LCD_COMMAND, moveCursorCommand);
+}
+
+void LCD_Clear(void){
+    LCD_SendWord(LCD_COMMAND, LCD_CLEAR_CMD);
+    DELAY_Set(2);
+}
+
+void DELAY_Init()
+{
+    // Enable timer clock
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+
+    // Set timer to:
+    //   Auto reload buffer
+    //   Stop on overflow
+    //   Enable update events
+    //   Interrupt on overflow only
+    TIM3->CR1 = ((uint16_t) 0x8C);
+
+    TIM3->PSC = DELAY_PRESCALER_1KHZ;
+    TIM3->ARR = DELAY_RELOAD_PERIOD;
+
+    // Update timer registers.
+    TIM3->EGR |= 0x0001;
+}
+
+void DELAY_Set(uint32_t milliseconds){
+    // Clear timer
+    TIM3->CNT |= 0x0;
+
+    // Set timeout
+    TIM3->ARR = milliseconds;
+
+    // Update timer registers
+    TIM3->EGR |= 0x0001;
+
+    // Start the timer
+    TIM3->CR1 |= TIM_CR1_CEN;
+
+    // Loop until interrupt flag is set by timer expiry
+    while (!(TIM3->SR & TIM_SR_UIF)) {
+        /* polling... */
+    }
+
+    // Stop the timer
+    TIM3 -> CR1 &= ~(TIM_CR1_CEN);
+
+    // Reset the interrupt flag
+    TIM3->SR &= ~(TIM_SR_UIF);
 }
 
