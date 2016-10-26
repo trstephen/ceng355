@@ -25,18 +25,23 @@ void LCD_Init(void){
     //    | EN  RS  NC  NC  D7  D6  D5  D4    D3  D2  D1  D0 |
     //    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾HD44780 LCD Controller‾‾‾‾‾‾‾‾‾‾‾‾‾‾
     //
-    // When the LCD is initialized it's working in 8bit word mode.
-    // The PBMCUSLK will interpret the 8bit word sent by SPI according to
-    // the above diagram where D3->D0 = 0. The first thing we have to do is
-    // shift into 4b mode operation so we can ignore D3->D0.
-    // We can't use LCD_SendWord now since it's written with the assumption
-    // we're in 4b mode.
-    uint8_t set4bMode = 0x2;
-    HC595_Write(LCD_DISABLE | LCD_COMMAND | set4bMode);
-    HC595_Write(LCD_ENABLE | LCD_COMMAND | set4bMode);
-    HC595_Write(LCD_DISABLE | LCD_COMMAND | set4bMode);
+    // On initialization, the LCD may be in 4b or 8b mode. We need to change it to
+    // 4b mode to use LCD_SendWord, which assumes 4b mode and sends high and low half-words.
+    //
+    // If the LCD is in 8b mode:
+    //   1. Send 0x0, interpreted as command 0x00 which has no effect
+    //   2. Send 0x2, interpreted as command 0x20 which changes to 4b mode
+    //
+    // If the LCD is in 4b mode:
+    //   1. Send 0x0, interpreted as high half-word
+    //   2. Send 0x2, interpreted as lower half-word, command 0x02 is "send cursor home"
+    // Since we entered in 4b mode we can continue with the rest of the initialization
+    // Note, "cursor home" has a 1.52 ms execution time so we add a 2ms delay to ensure
+    // the LCD is ready to receive the rest of the config.
+    LCD_SendWord(LCD_COMMAND, 0x2);
+    DELAY_Set(2);
 
-    // Now do the rest of the LCD config
+    // Now we're in 4b mode we can do the rest of the LCD config
     // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Instruction_set
     LCD_SendWord(LCD_COMMAND, 0x28); /* 4 bits, 2 lines, 5x7 font */
     LCD_SendWord(LCD_COMMAND, 0x0E); /* Display on, Show cursor, No blink */
