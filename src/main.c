@@ -59,6 +59,7 @@ main(int argc, char* argv[])
 	myGPIOA_Init();		/* Initialize I/O port PA */
 	myTIM2_Init();		/* Initialize timer TIM2 */
 	myEXTI_Init();		/* Initialize EXTI */
+	LCD_Init();
 
     while (1) {
         // Nothing is going on here...
