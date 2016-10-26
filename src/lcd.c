@@ -26,20 +26,19 @@ void LCD_Init(void){
     //    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾HD44780 LCD Controller‾‾‾‾‾‾‾‾‾‾‾‾‾‾
     //
     // On initialization, the LCD may be in 4b or 8b mode. We need to change it to
-    // 4b mode to use LCD_SendWord, which assumes 4b mode and sends high and low half-bits.
+    // 4b mode to use LCD_SendWord, which assumes 4b mode and sends high and low half-words.
     //
     // If the LCD is in 8b mode:
     //   1. Send 0x0, interpreted as command 0x00 which has no effect
     //   2. Send 0x2, interpreted as command 0x20 which changes to 4b mode
     //
     // If the LCD is in 4b mode:
-    //   1. Send 0x0, interpreted as high half-bit
-    //   2. Send 0x2, interpreted as lower half-bit, command 0x02 is "send cursor home"
+    //   1. Send 0x0, interpreted as high half-word
+    //   2. Send 0x2, interpreted as lower half-word, command 0x02 is "send cursor home"
     // Since we entered in 4b mode we can continue with the rest of the initialization
     // Note, "cursor home" has a 1.52 ms execution time so we add a 2ms delay to ensure
     // the LCD is ready to receive the rest of the config.
-    uint8_t set4bMode = 0x2;
-    LCD_SendWord(LCD_COMMAND, set4bMode);
+    LCD_SendWord(LCD_COMMAND, 0x2);
     DELAY_Set(2);
 
     // Now we're in 4b mode we can do the rest of the LCD config
