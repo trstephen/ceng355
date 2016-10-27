@@ -41,14 +41,20 @@
 #define VERBOSE 0
 #endif
 
-/* Clock prescaler for TIM2 timer: no prescaling */
+/* Clock prescalers */
 #define myTIM2_PRESCALER ((uint16_t)0x0000)
-/* Maximum possible setting for overflow */
-#define myTIM2_PERIOD ((uint32_t)0xFFFFFFFF)
+#define ONE_MS_PER_TICK_PRESCALER ((uint16_t)((SystemCoreClock - 1) / 1000))
+/* Clock periods */
+#define myTIM2_PERIOD ((uint32_t)0xFFFFFFFF) // max value before overflow
+#define LCD_UPDATE_PERIOD_MS ((uint32_t)2500)
 
 void myGPIOA_Init(void);
 void myTIM2_Init(void);
+void myTIM16_Init(void);
 void myEXTI_Init(void);
+
+/* Global vars */
+float gbl_sigFreq = 0;
 
 int
 main(int argc, char* argv[])
@@ -56,10 +62,11 @@ main(int argc, char* argv[])
 	trace_printf("Welcome to the final project.\n");
 	if (VERBOSE) trace_printf("System clock: %u Hz\n", SystemCoreClock);
 
-	myGPIOA_Init();		/* Initialize I/O port PA */
-	myTIM2_Init();		/* Initialize timer TIM2 */
-	myEXTI_Init();		/* Initialize EXTI */
-	LCD_Init();
+	myGPIOA_Init();		/* Init I/O port PA for input sig */
+	myTIM2_Init();		/* Init timer for input sig period measurement */
+	myEXTI_Init();		/* Init EXTI to trigger on input sig waveform edge */
+	LCD_Init();         /* Init LCD communication through SPI & write placeholder */
+	myTIM16_Init();     /* Init & start LCD update timer */
 
     while (1) {
         // Nothing is going on here...
@@ -117,6 +124,42 @@ void myTIM2_Init()
     TIM2->DIER |= TIM_DIER_UIE;
 }
 
+void myTIM16_Init()
+{
+    /* Enable clock for TIM16 peripheral */
+    // Relevant register: RCC->APB2ENR
+    RCC->APB2ENR |= RCC_APB2ENR_TIM16EN;
+
+    /* Configure TIM16: buffer auto-reload, count up, stop on overflow,
+     * enable update events, interrupt on overflow only */
+    // Relevant register: TIM2->CR1
+    TIM16->CR1 = ((uint16_t) 0x008C);
+
+    /* Set clock prescaler value */
+    TIM16->PSC = ONE_MS_PER_TICK_PRESCALER;
+    /* Set auto-reloaded delay */
+    TIM16->ARR = LCD_UPDATE_PERIOD_MS;
+
+    /* Update timer registers */
+    // Relevant register: TIM2->EGR
+    TIM16->EGR = ((uint16_t) 0x0001);
+
+    /* Assign TIM16 interrupt priority = 1 in NVIC */
+    // Relevant register: NVIC->IP[3], or use NVIC_SetPriority
+    NVIC_SetPriority(TIM16_IRQn, 1);
+
+    /* Enable TIM16 interrupts in NVIC */
+    // Relevant register: NVIC->ISER[0], or use NVIC_EnableIRQ
+    NVIC_EnableIRQ(TIM16_IRQn);
+
+    /* Enable update interrupt generation */
+    // Relevant register: TIM16->DIER
+    TIM16->DIER |= TIM_DIER_UIE;
+
+    /* Activate timer! */
+    TIM16->CR1 |= TIM_CR1_CEN;
+}
+
 void myEXTI_Init()
 {
     /* Map EXTI1 line to PA1 */
@@ -157,6 +200,23 @@ void TIM2_IRQHandler()
     }
 }
 
+void TIM16_IRQHandler()
+{
+    /* Check if update interrupt flag is indeed set */
+    if ((TIM16->SR & TIM_SR_UIF) != 0) {
+        if (VERBOSE) trace_printf("\nUpdating LCD with freq: %f Hz\n", gbl_sigFreq);
+        LCD_UpdateFreq(gbl_sigFreq);
+
+        /* Clear update interrupt flag */
+        // Relevant register: TIM16->SR
+        TIM16->SR &= ~(TIM_SR_UIF);
+
+        /* Restart stopped timer */
+        // Relevant register: TIM16->CR1
+        TIM16->CR1 |= TIM_CR1_CEN;
+    }
+}
+
 /* This handler is declared in system/src/cmsis/vectors_stm32f0xx.c */
 void EXTI0_1_IRQHandler()
 {
@@ -170,10 +230,10 @@ void EXTI0_1_IRQHandler()
 			// stop timer and get count
 			TIM2->CR1 &= ~(TIM_CR1_CEN);
 			uint32_t count = TIM2->CNT;
-			float sigFreq = ((float)SystemCoreClock) / count;
-			float sigPeriod = 1 / sigFreq;
+			gbl_sigFreq = ((float)SystemCoreClock) / count;
+			float sigPeriod = 1.0 / gbl_sigFreq;
 
-			if (VERBOSE)trace_printf("Signal Freq:   %f Hz\n", sigFreq);
+			if (VERBOSE)trace_printf("Signal Freq:   %f Hz\n", gbl_sigFreq);
 			if (VERBOSE)trace_printf("Signal Period: %f s\n\n", sigPeriod);
 
 		} else {

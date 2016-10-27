@@ -5,6 +5,9 @@
 #include "diag/Trace.h"
 #include "lcd.h"
 
+#define PADDING_FLAG (69)
+#define DIGITS_TO_WRITE (5)
+
 void LCD_Init(void){
     // Configure GPIOB to control LCD via SPI
     myGPIOB_Init();
@@ -49,20 +52,20 @@ void LCD_Init(void){
     LCD_Clear();
 
     // Write the initial units and resistance / freq placeholders manually
-    //   "  ???  Ω"
     //   "  ???  H"
-    LCD_MoveCursor(1, 3);
+    //   "  ???  Ω"
+    LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
-    LCD_MoveCursor(1, 8);
+    LCD_MoveCursor(LCD_RESISTANCE_ROW, 8);
     LCD_SendWord(LCD_DATA, CHAR_OMEGA);
 
-    LCD_MoveCursor(2, 3);
+    LCD_MoveCursor(LCD_FREQ_ROW, 3);
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
-    LCD_MoveCursor(2, 8);
+    LCD_MoveCursor(LCD_FREQ_ROW, 8);
     LCD_SendASCIIChar("H");
 }
 
@@ -256,5 +259,51 @@ void DELAY_Set(uint32_t milliseconds){
 
     // Reset the interrupt flag
     TIM3->SR &= ~(TIM_SR_UIF);
+}
+
+void LCD_UpdateFreq(float freq){
+    LCD_UpdateRow(LCD_FREQ_ROW, freq);
+}
+
+void LCD_UpdateRow(uint8_t row, float val){
+    // We have five characters to write to (8 less one for > or <, one for metric scale,
+    // and one for unit symbol) and we'll be displaying ints so our display range
+    // is 1 -> 99999. We also want to avoid displaying leading 0s.
+
+    uint32_t intVal = (uint32_t)val;
+
+    uint8_t ones = intVal % 10;
+    uint8_t tens = (intVal / 10) % 10;
+    uint8_t hundreds = (intVal / 100) % 10;
+    uint8_t thousands = (intVal / 1000) % 10;
+    uint8_t tenThousands = (intVal / 10000) % 10;
+
+    uint8_t orderedDigits[DIGITS_TO_WRITE] = {
+            tenThousands,
+            thousands,
+            hundreds,
+            tens,
+            ones
+    };
+
+    // Flag padding zeroes
+    for (int i = 0; i < DIGITS_TO_WRITE; i++) {
+        if (orderedDigits[i] != 0) {
+            break;
+        } else {
+            orderedDigits[i] = PADDING_FLAG;
+        }
+    }
+
+    // Print the values to the LCD
+    LCD_MoveCursor(row, 1);
+    LCD_SendASCIIChar(" "); // overwrite over/under range flag
+    for (int i = 0; i < DIGITS_TO_WRITE; i++) {
+        if (orderedDigits[i] == PADDING_FLAG) {
+            LCD_SendASCIIChar(" ");
+        } else {
+            LCD_SendDigit(orderedDigits[i]);
+        }
+    }
 }
 

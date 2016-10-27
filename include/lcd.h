@@ -13,6 +13,8 @@
 #define LCD_CLEAR_CMD (0x1)
 #define LCD_FIRST_ROW_OFFSET (0x0)
 #define LCD_SECOND_ROW_OFFSET (0x40)
+#define LCD_FREQ_ROW (1)
+#define LCD_RESISTANCE_ROW (2)
 #define CHAR_OMEGA (0xF4)
 #define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
 #define DELAY_RELOAD_PERIOD (100) /* 100 ms */
@@ -68,5 +70,11 @@ uint8_t SPI_DoneSending(void);
 
 // Positions the LCD cursor at row x [1,2] col y [1:8]
 void LCD_MoveCursor(uint8_t row, uint8_t col);
+
+// Write a new frequency value to the LCD
+void LCD_UpdateFreq(float freq);
+
+// Write a new value to the specified row, leaving the unit symbol untouched
+void LCD_UpdateRow(uint8_t row, float val);
 
 #endif /* __LCD_H */
