@@ -5,6 +5,10 @@
 #include "diag/Trace.h"
 #include "lcd.h"
 
+#ifndef VERBOSE
+#define VERBOSE 0
+#endif
+
 #define PADDING_FLAG (69)
 #define DIGITS_TO_WRITE (5)
 
@@ -46,8 +50,9 @@ void LCD_Init(void){
 
     // Now we're in 4b mode we can do the rest of the LCD config
     // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Instruction_set
+    uint8_t showCursorState = VERBOSE ? LCD_CURSOR_ON : 0x0;
     LCD_SendWord(LCD_COMMAND, 0x28); /* 4 bits, 2 lines, 5x7 font */
-    LCD_SendWord(LCD_COMMAND, 0x0E); /* Display on, Show cursor, No blink */
+    LCD_SendWord(LCD_COMMAND, 0x0C | showCursorState); /* Display on, No blink, cursor? */
     LCD_SendWord(LCD_COMMAND, 0x06); /* Cursor increment, No display shifting */
     LCD_Clear();
 

@@ -9,6 +9,7 @@
 #define LCD_DISABLE (0x0)
 #define LCD_COMMAND (0x0)
 #define LCD_DATA (0x40)
+#define LCD_CURSOR_ON (0x2)
 #define LCD_MOVE_CURSOR_CMD (0x80)
 #define LCD_CLEAR_CMD (0x1)
 #define LCD_FIRST_ROW_OFFSET (0x0)

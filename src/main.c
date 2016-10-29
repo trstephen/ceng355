@@ -46,8 +46,11 @@
 #define ONE_MS_PER_TICK_PRESCALER ((uint16_t)((SystemCoreClock - 1) / 1000))
 /* Clock periods */
 #define myTIM2_PERIOD ((uint32_t)0xFFFFFFFF) // max value before overflow
+#if VERBOSE
 #define LCD_UPDATE_PERIOD_MS ((uint32_t)2500)
-
+#else
+#define LCD_UPDATE_PERIOD_MS ((uint32_t)250)
+#endif
 void myGPIOA_Init(void);
 void myTIM2_Init(void);
 void myTIM16_Init(void);
