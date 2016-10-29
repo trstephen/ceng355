@@ -262,7 +262,26 @@ void DELAY_Set(uint32_t milliseconds){
 }
 
 void LCD_UpdateFreq(float freq){
-    LCD_UpdateRow(LCD_FREQ_ROW, freq);
+    // Bounds checking!
+    if (freq < 1) {
+        LCD_MoveCursor(LCD_FREQ_ROW, 1);
+        LCD_SendASCIIChar("<");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendDigit(1);
+    } else if (freq > 99999) {
+        LCD_MoveCursor(LCD_FREQ_ROW, 1);
+        LCD_SendASCIIChar(">");
+        LCD_SendDigit(9);
+        LCD_SendDigit(9);
+        LCD_SendDigit(9);
+        LCD_SendDigit(9);
+        LCD_SendDigit(9);
+    } else {
+        LCD_UpdateRow(LCD_FREQ_ROW, freq);
+    }
 }
 
 void LCD_UpdateRow(uint8_t row, float val){
