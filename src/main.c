@@ -82,27 +82,22 @@ main(int argc, char* argv[])
 void myGPIOA_Init()
 {
     /* Enable clock for GPIOA peripheral */
-    // Relevant register: RCC->AHBENR
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 
     /* Configure PA1 as input */
-    // Relevant register: GPIOA->MODER
     GPIOA->MODER &= ~(GPIO_MODER_MODER1);
 
     /* Ensure no pull-up/pull-down for PA1 */
-    // Relevant register: GPIOA->PUPDR
     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR1);
 }
 
 void myTIM2_Init()
 {
     /* Enable clock for TIM2 peripheral */
-    // Relevant register: RCC->APB1ENR
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 
     /* Configure TIM2: buffer auto-reload, count up, stop on overflow,
      * enable update events, interrupt on overflow only */
-    // Relevant register: TIM2->CR1
     TIM2->CR1 = ((uint16_t) 0x008C);
 
     /* Set clock prescaler value */
@@ -111,31 +106,25 @@ void myTIM2_Init()
     TIM2->ARR = myTIM2_PERIOD;
 
     /* Update timer registers */
-    // Relevant register: TIM2->EGR
     TIM2->EGR = ((uint16_t) 0x0001);
 
     /* Assign TIM2 interrupt priority = 0 in NVIC */
-    // Relevant register: NVIC->IP[3], or use NVIC_SetPriority
     NVIC_SetPriority(TIM2_IRQn, 0);
 
     /* Enable TIM2 interrupts in NVIC */
-    // Relevant register: NVIC->ISER[0], or use NVIC_EnableIRQ
     NVIC_EnableIRQ(TIM2_IRQn);
 
     /* Enable update interrupt generation */
-    // Relevant register: TIM2->DIER
     TIM2->DIER |= TIM_DIER_UIE;
 }
 
 void myTIM16_Init()
 {
     /* Enable clock for TIM16 peripheral */
-    // Relevant register: RCC->APB2ENR
     RCC->APB2ENR |= RCC_APB2ENR_TIM16EN;
 
     /* Configure TIM16: buffer auto-reload, count up, stop on overflow,
      * enable update events, interrupt on overflow only */
-    // Relevant register: TIM2->CR1
     TIM16->CR1 = ((uint16_t) 0x008C);
 
     /* Set clock prescaler value */
@@ -144,19 +133,15 @@ void myTIM16_Init()
     TIM16->ARR = LCD_UPDATE_PERIOD_MS;
 
     /* Update timer registers */
-    // Relevant register: TIM2->EGR
     TIM16->EGR = ((uint16_t) 0x0001);
 
     /* Assign TIM16 interrupt priority = 1 in NVIC */
-    // Relevant register: NVIC->IP[3], or use NVIC_SetPriority
     NVIC_SetPriority(TIM16_IRQn, 1);
 
     /* Enable TIM16 interrupts in NVIC */
-    // Relevant register: NVIC->ISER[0], or use NVIC_EnableIRQ
     NVIC_EnableIRQ(TIM16_IRQn);
 
     /* Enable update interrupt generation */
-    // Relevant register: TIM16->DIER
     TIM16->DIER |= TIM_DIER_UIE;
 
     /* Activate timer! */
@@ -166,23 +151,18 @@ void myTIM16_Init()
 void myEXTI_Init()
 {
     /* Map EXTI1 line to PA1 */
-    // Relevant register: SYSCFG->EXTICR[0]
     SYSCFG->EXTICR[0] = SYSCFG_EXTICR1_EXTI1_PA;
 
     /* EXTI1 line interrupts: set rising-edge trigger */
-    // Relevant register: EXTI->RTSR
     EXTI->RTSR |= EXTI_RTSR_TR1;
 
     /* Unmask interrupts from EXTI1 line */
-    // Relevant register: EXTI->IMR
     EXTI->IMR |= EXTI_IMR_MR1;
 
     /* Assign EXTI1 interrupt priority = 0 in NVIC */
-    // Relevant register: NVIC->IP[1], or use NVIC_SetPriority
     NVIC_SetPriority(EXTI0_1_IRQn, 0);
 
     /* Enable EXTI1 interrupts in NVIC */
-    // Relevant register: NVIC->ISER[0], or use NVIC_EnableIRQ
     NVIC_EnableIRQ(EXTI0_1_IRQn);
 }
 
@@ -191,14 +171,11 @@ void TIM2_IRQHandler()
 {
     /* Check if update interrupt flag is indeed set */
     if ((TIM2->SR & TIM_SR_UIF) != 0) {
-        trace_printf("\n*** Overflow! ***\n");
 
         /* Clear update interrupt flag */
-        // Relevant register: TIM2->SR
         TIM2->SR &= ~(TIM_SR_UIF);
 
         /* Restart stopped timer */
-        // Relevant register: TIM2->CR1
         TIM2->CR1 |= TIM_CR1_CEN;
     }
 }
@@ -211,11 +188,9 @@ void TIM16_IRQHandler()
         LCD_UpdateFreq(gbl_sigFreq);
 
         /* Clear update interrupt flag */
-        // Relevant register: TIM16->SR
         TIM16->SR &= ~(TIM_SR_UIF);
 
         /* Restart stopped timer */
-        // Relevant register: TIM16->CR1
         TIM16->CR1 |= TIM_CR1_CEN;
     }
 }

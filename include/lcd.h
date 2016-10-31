@@ -18,7 +18,7 @@
 #define LCD_RESISTANCE_ROW (2)
 #define CHAR_OMEGA (0xF4)
 #define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
-#define DELAY_RELOAD_PERIOD (100) /* 100 ms */
+#define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
 
 // Initializes the LCD from a fresh power-on state on the PBMCUSLK.
 // It's a 2x8 character LCD with its input buffered by a shift register.
@@ -26,6 +26,7 @@
 // Configures:
 //   - GPIOB
 //   - SPI
+//   - TIM3
 void LCD_Init(void);
 
 // Turns on GPIOB so it can be used by SPI.

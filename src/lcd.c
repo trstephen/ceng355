@@ -9,7 +9,7 @@
 #define VERBOSE 0
 #endif
 
-#define PADDING_FLAG (69)
+#define LEADING_ZERO_FLAG (69)
 #define DIGITS_TO_WRITE (5)
 
 void LCD_Init(void){
@@ -59,19 +59,19 @@ void LCD_Init(void){
     // Write the initial units and resistance / freq placeholders manually
     //   "  ???  H"
     //   "  ???  Ω"
-    LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
-    LCD_MoveCursor(LCD_RESISTANCE_ROW, 8);
-    LCD_SendWord(LCD_DATA, CHAR_OMEGA);
-
     LCD_MoveCursor(LCD_FREQ_ROW, 3);
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
     LCD_SendASCIIChar("?");
     LCD_MoveCursor(LCD_FREQ_ROW, 8);
     LCD_SendASCIIChar("H");
+
+    LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_SendASCIIChar("?");
+    LCD_MoveCursor(LCD_RESISTANCE_ROW, 8);
+    LCD_SendWord(LCD_DATA, CHAR_OMEGA);
 }
 
 void myGPIOB_Init(void){
@@ -235,7 +235,7 @@ void DELAY_Init()
     TIM3->CR1 = ((uint16_t) 0x8C);
 
     TIM3->PSC = DELAY_PRESCALER_1KHZ;
-    TIM3->ARR = DELAY_RELOAD_PERIOD;
+    TIM3->ARR = DELAY_PERIOD_DEFAULT;
 
     // Update timer registers.
     TIM3->EGR |= 0x0001;
@@ -267,7 +267,6 @@ void DELAY_Set(uint32_t milliseconds){
 }
 
 void LCD_UpdateFreq(float freq){
-    // Bounds checking!
     if (freq < 1) {
         LCD_MoveCursor(LCD_FREQ_ROW, 1);
         LCD_SendASCIIChar("<");
@@ -310,12 +309,14 @@ void LCD_UpdateRow(uint8_t row, float val){
             ones
     };
 
-    // Flag padding zeroes
+    // Flag leading zeroes with number outside [0-9] range
     for (int i = 0; i < DIGITS_TO_WRITE; i++) {
         if (orderedDigits[i] != 0) {
+            // Stop searching after we find the first non-zero number.
+            // Since range is >= 1 this is guaranteed to occur
             break;
         } else {
-            orderedDigits[i] = PADDING_FLAG;
+            orderedDigits[i] = LEADING_ZERO_FLAG;
         }
     }
 
@@ -323,11 +324,10 @@ void LCD_UpdateRow(uint8_t row, float val){
     LCD_MoveCursor(row, 1);
     LCD_SendASCIIChar(" "); // overwrite over/under range flag
     for (int i = 0; i < DIGITS_TO_WRITE; i++) {
-        if (orderedDigits[i] == PADDING_FLAG) {
+        if (orderedDigits[i] == LEADING_ZERO_FLAG) {
             LCD_SendASCIIChar(" ");
         } else {
             LCD_SendDigit(orderedDigits[i]);
         }
     }
 }
-
