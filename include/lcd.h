@@ -76,6 +76,9 @@ void LCD_MoveCursor(uint8_t row, uint8_t col);
 // Write a new frequency value to the LCD
 void LCD_UpdateFreq(float freq);
 
+// Write a new resistance to the LCD;
+void LCD_UpdateResistance(float resistance);
+
 // Write a new value to the specified row, leaving the unit symbol untouched
 void LCD_UpdateRow(uint8_t row, float val);
 

@@ -288,6 +288,20 @@ void LCD_UpdateFreq(float freq){
     }
 }
 
+void LCD_UpdateResistance(float resistance){
+    if (resistance < 1) {
+        LCD_MoveCursor(LCD_RESISTANCE_ROW, 1);
+        LCD_SendASCIIChar("<");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendASCIIChar(" ");
+        LCD_SendDigit(1);
+    } else {
+        LCD_UpdateRow(LCD_RESISTANCE_ROW, resistance);
+    }
+}
+
 void LCD_UpdateRow(uint8_t row, float val){
     // We have five characters to write to (8 less one for > or <, one for metric scale,
     // and one for unit symbol) and we'll be displaying ints so our display range

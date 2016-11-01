@@ -32,10 +32,16 @@
 
 // Sample pragmas to cope with warnings. Please note the related line at
 // the end of this function, used to pop the compiler diagnostics status.
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
 #pragma GCC diagnostic ignored "-Wreturn-type"
+
+
+// ----------------------------------------------------------------------------
+//                      DEFINES
+// ----------------------------------------------------------------------------
 
 #ifndef VERBOSE
 #define VERBOSE 0
@@ -51,13 +57,25 @@
 #else
 #define LCD_UPDATE_PERIOD_MS ((uint32_t)250)
 #endif
+#define MAX_ADC_READ_VALUE (4095.0)
+#define MAX_DISPLAY_RESISTANCE (5000.0)
+
+// ----------------------------------------------------------------------------
+//                      PROTOTYPES
+// ----------------------------------------------------------------------------
+
 void myGPIOA_Init(void);
 void myTIM2_Init(void);
 void myTIM16_Init(void);
 void myEXTI_Init(void);
+void myADC_Init(void);
 
-/* Global vars */
-float gbl_sigFreq = 0;
+// ----------------------------------------------------------------------------
+//                      GLOBAL VARIABLES
+// ----------------------------------------------------------------------------
+
+float gbl_sigFreq = 0.0;
+float gbl_resistance = 0.0;
 
 int
 main(int argc, char* argv[])
@@ -65,14 +83,32 @@ main(int argc, char* argv[])
 	trace_printf("Welcome to the final project.\n");
 	if (VERBOSE) trace_printf("System clock: %u Hz\n", SystemCoreClock);
 
-	myGPIOA_Init();		/* Init I/O port PA for input sig */
+	myGPIOA_Init();		/* Init I/O port PA for input sig, ADC */
+	myADC_Init();       /* Init ADC for continuous measurement */
 	myTIM2_Init();		/* Init timer for input sig period measurement */
 	myEXTI_Init();		/* Init EXTI to trigger on input sig waveform edge */
 	LCD_Init();         /* Init LCD communication through SPI & write placeholder */
 	myTIM16_Init();     /* Init & start LCD update timer */
 
     while (1) {
-        // Nothing is going on here...
+        // Poll the ADC for resistance values
+        // Start ADC conversion
+        ADC1->CR |= ADC_CR_ADSTART;
+
+        // Wait for End Of Conversion flag to be set
+        while (!(ADC1->ISR & ADC_ISR_EOC)) {};
+
+        // Reset End Of Conversion flag
+        ADC1->ISR &= ~(ADC_ISR_EOC);
+
+        // Read the ADC value
+        uint32_t ADCValue = ((ADC1->DR) & ADC_DR_DATA);
+
+        // Convert to resistance range
+        gbl_resistance = ((float)ADCValue) / MAX_ADC_READ_VALUE * MAX_DISPLAY_RESISTANCE;
+
+        if (VERBOSE) trace_printf("ADC Value: %d\n", ADCValue);
+        if (VERBOSE) trace_printf("Resistance: %f\n\n", gbl_resistance);
     }
 
     return 0;
@@ -81,14 +117,20 @@ main(int argc, char* argv[])
 
 void myGPIOA_Init()
 {
+    // Configure:
+    //   PA0 --ana-> Analog in to ADC for resistance
+    //   PA1 --in--> Read 555 timer edge transitions
+
     /* Enable clock for GPIOA peripheral */
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 
-    /* Configure PA1 as input */
-    GPIOA->MODER &= ~(GPIO_MODER_MODER1);
+    /* Configure PA0 */
+    GPIOA->MODER &= ~(GPIO_MODER_MODER0);  /* Analog input */
+    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR1);  /* No pull up/down */
 
-    /* Ensure no pull-up/pull-down for PA1 */
-    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR1);
+    /* Configure PA1 */
+    GPIOA->MODER &= ~(GPIO_MODER_MODER1);  /* Input */
+    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR1);  /* No pull up/down */
 }
 
 void myTIM2_Init()
@@ -166,11 +208,38 @@ void myEXTI_Init()
     NVIC_EnableIRQ(EXTI0_1_IRQn);
 }
 
+void myADC_Init(){
+    /* Enable clock for ADC */
+    RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
+
+    /* Tell ADC to begin self-calibration and wait for it to finish */
+    if (VERBOSE) trace_printf("Start ADC calibration...\n");
+    ADC1->CR = ADC_CR_ADCAL;
+    while (ADC1->CR == ADC_CR_ADCAL) {};
+    if (VERBOSE) trace_printf("ADC calibration finished!\n\n");
+
+    /* ADC Configuration:
+     *   - Continuous conversion
+     *   - Overrun mode
+     */
+    ADC1->CFGR1 |= (ADC_CFGR1_CONT | ADC_CFGR1_OVRMOD);
+
+    /* Select channel, PA0 needs Channel 0 */
+    ADC1->CHSELR = ADC_CHSELR_CHSEL0;
+
+    /* Enable ADC and wait for it to have ready status */
+    if (VERBOSE) trace_printf("Start ADC enable...\n");
+    ADC1->CR |= ADC_CR_ADEN;
+    while (!(ADC1->ISR & ADC_ISR_ADRDY)) {};
+    if (VERBOSE) trace_printf("ADC enable finished!\n\n");
+}
+
 /* This handler is declared in system/src/cmsis/vectors_stm32f0xx.c */
 void TIM2_IRQHandler()
 {
     /* Check if update interrupt flag is indeed set */
     if ((TIM2->SR & TIM_SR_UIF) != 0) {
+        trace_printf("\n*** 555 Timer Input Period Overflow ***\n");
 
         /* Clear update interrupt flag */
         TIM2->SR &= ~(TIM_SR_UIF);
@@ -186,6 +255,9 @@ void TIM16_IRQHandler()
     if ((TIM16->SR & TIM_SR_UIF) != 0) {
         if (VERBOSE) trace_printf("\nUpdating LCD with freq: %f Hz\n", gbl_sigFreq);
         LCD_UpdateFreq(gbl_sigFreq);
+
+        if (VERBOSE) trace_printf("Updating LCD with resistance: $f Ohm\n\n");
+        LCD_UpdateResistance(gbl_resistance);
 
         /* Clear update interrupt flag */
         TIM16->SR &= ~(TIM_SR_UIF);
