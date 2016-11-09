@@ -5,12 +5,38 @@
 #include "diag/Trace.h"
 #include "lcd.h"
 
+// ----------------------------------------------------------------------------
+//                      DEFINES
+// ----------------------------------------------------------------------------
+
 #ifndef VERBOSE
 #define VERBOSE 0
 #endif
 
+// Maps to EN and RS bits for LCD
+#define LCD_ENABLE (0x80)
+#define LCD_DISABLE (0x0)
+#define LCD_COMMAND (0x0)
+#define LCD_DATA (0x40)
+
+// LCD Config commands
+#define LCD_CURSOR_ON (0x2)
+#define LCD_MOVE_CURSOR_CMD (0x80)
+#define LCD_CLEAR_CMD (0x1)
+#define LCD_FIRST_ROW_OFFSET (0x0)
+#define LCD_SECOND_ROW_OFFSET (0x40)
+
+// Positions on the LCD character table
+#define CHAR_OMEGA (0xF4)
+
 #define LEADING_ZERO_FLAG (69)
 #define DIGITS_TO_WRITE (5)
+#define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
+#define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
+
+// ----------------------------------------------------------------------------
+//                      IMPLEMENTATION
+// ----------------------------------------------------------------------------
 
 void LCD_Init(void){
     // Configure GPIOB to control LCD via SPI
@@ -32,8 +58,9 @@ void LCD_Init(void){
     //    | EN  RS  NC  NC  D7  D6  D5  D4    D3  D2  D1  D0 |
     //    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾HD44780 LCD Controller‾‾‾‾‾‾‾‾‾‾‾‾‾‾
     //
-    // On initialization, the LCD may be in 4b or 8b mode. We need to change it to
-    // 4b mode to use LCD_SendWord, which assumes 4b mode and sends high and low half-words.
+    // On initialization, the LCD may be in 4b or 8b mode. We need to change it
+    // to 4b mode to use LCD_SendWord, which assumes 4b mode and sends high and
+    // low half-words.
     //
     // If the LCD is in 8b mode:
     //   1. Send 0x0, interpreted as command 0x00 which has no effect
@@ -41,19 +68,24 @@ void LCD_Init(void){
     //
     // If the LCD is in 4b mode:
     //   1. Send 0x0, interpreted as high half-word
-    //   2. Send 0x2, interpreted as lower half-word, command 0x02 is "send cursor home"
-    // Since we entered in 4b mode we can continue with the rest of the initialization
-    // Note, "cursor home" has a 1.52 ms execution time so we add a 2ms delay to ensure
-    // the LCD is ready to receive the rest of the config.
+    //   2. Send 0x2, interpreted as lower half-word, command 0x02 is "send
+    //      cursor home"
+    // Since we entered in 4b mode we can continue with the rest of the
+    // initialization.
+    // Note, "cursor home" has a 1.52 ms execution time so we add a 2ms delay to
+    // ensure the LCD is ready to receive the rest of the config.
     LCD_SendWord(LCD_COMMAND, 0x2);
     DELAY_Set(2);
 
     // Now we're in 4b mode we can do the rest of the LCD config
     // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Instruction_set
+    // 1. set 4b, 2 line, 5x7 font
+    // 2. display on, blink off, cursor?
+    // 3. cursor auto-increment, no display shift
     uint8_t showCursorState = VERBOSE ? LCD_CURSOR_ON : 0x0;
-    LCD_SendWord(LCD_COMMAND, 0x28); /* 4 bits, 2 lines, 5x7 font */
-    LCD_SendWord(LCD_COMMAND, 0x0C | showCursorState); /* Display on, No blink, cursor? */
-    LCD_SendWord(LCD_COMMAND, 0x06); /* Cursor increment, No display shifting */
+    LCD_SendWord(LCD_COMMAND, 0x28);
+    LCD_SendWord(LCD_COMMAND, 0x0C | showCursorState);
+    LCD_SendWord(LCD_COMMAND, 0x06);
     LCD_Clear();
 
     // Write the initial units and resistance / freq placeholders manually
@@ -81,19 +113,19 @@ void myGPIOB_Init(void){
     // PB3 --AF0-> SPI MOSI
     // PB5 --AF0-> SPI SCK
     GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_5;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF;
+    GPIO_InitStruct.GPIO_Pin   = GPIO_Pin_3 | GPIO_Pin_5;
+    GPIO_InitStruct.GPIO_Mode  = GPIO_Mode_AF;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_InitStruct.GPIO_PuPd  = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     // Configure the LCK pin for "manual" control in HC595_Write
-    GPIO_InitStruct.GPIO_Pin = LCD_LCK_PIN;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
+    GPIO_InitStruct.GPIO_Pin   = LCD_LCK_PIN;
+    GPIO_InitStruct.GPIO_Mode  = GPIO_Mode_OUT;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_InitStruct.GPIO_PuPd  = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
 
@@ -102,14 +134,14 @@ void mySPI_Init(void){
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
 
     SPI_InitTypeDef SPI_InitStruct;
-    SPI_InitStruct.SPI_Direction = SPI_Direction_1Line_Tx;
-    SPI_InitStruct.SPI_Mode = SPI_Mode_Master;
-    SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;
-    SPI_InitStruct.SPI_CPOL = SPI_CPOL_Low;
-    SPI_InitStruct.SPI_CPHA = SPI_CPHA_1Edge;
-    SPI_InitStruct.SPI_NSS = SPI_NSS_Soft;
+    SPI_InitStruct.SPI_Direction     = SPI_Direction_1Line_Tx;
+    SPI_InitStruct.SPI_Mode          = SPI_Mode_Master;
+    SPI_InitStruct.SPI_DataSize      = SPI_DataSize_8b;
+    SPI_InitStruct.SPI_CPOL          = SPI_CPOL_Low;
+    SPI_InitStruct.SPI_CPHA          = SPI_CPHA_1Edge;
+    SPI_InitStruct.SPI_NSS           = SPI_NSS_Soft;
     SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256;
-    SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;
+    SPI_InitStruct.SPI_FirstBit      = SPI_FirstBit_MSB;
     SPI_InitStruct.SPI_CRCPolynomial = 7;
 
     SPI_Init(SPI1, &SPI_InitStruct);
@@ -153,18 +185,18 @@ uint8_t SPI_DoneSending(void){
 
 void LCD_SendWord(uint8_t type, uint8_t word){
     // The high half of the register output is always reserved for EN and RS.
-    // To send an 8b target word we have to send it as two sequential 4b half-words,
-    // with the target half-words occupying the lower half of the word.
+    // To send an 8b target word we have to send it as two sequential 4b
+    // half-words, with the target half-words in the lower half of the word.
 
     uint8_t high = ((word & 0xF0) >> 4);
     uint8_t low = word & 0x0F;
 
     HC595_Write(LCD_DISABLE | type | high);
-    HC595_Write(LCD_ENABLE | type | high);
+    HC595_Write(LCD_ENABLE  | type | high);
     HC595_Write(LCD_DISABLE | type | high);
 
     HC595_Write(LCD_DISABLE | type | low);
-    HC595_Write(LCD_ENABLE | type | low);
+    HC595_Write(LCD_ENABLE  | type | low);
     HC595_Write(LCD_DISABLE | type | low);
 }
 
@@ -303,9 +335,10 @@ void LCD_UpdateResistance(float resistance){
 }
 
 void LCD_UpdateRow(uint8_t row, float val){
-    // We have five characters to write to (8 less one for > or <, one for metric scale,
-    // and one for unit symbol) and we'll be displaying ints so our display range
-    // is 1 -> 99999. We also want to avoid displaying leading 0s.
+    // We have five characters to write to (8 less one for > or <, one for
+    // metric scale, and one for unit symbol) and we'll be displaying ints so
+    // our display range is 1 -> 99999.
+    // We also want to avoid displaying leading 0s.
 
     uint32_t intVal = (uint32_t)val;
 

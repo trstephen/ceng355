@@ -57,11 +57,14 @@
 #else
 #define LCD_UPDATE_PERIOD_MS ((uint32_t)250)
 #endif
+/* Circuit tuning params */
 #define RESISTANCE_MAX_VALUE (5000.0) // PBMCUSLK uses a 5k pot
 #define ADC_MAX_VALUE ((float)(0xFFF)) // ADC bit resolution (12 by default)
 #define DAC_MAX_VALUE ((float)(0xFFF)) // DAC bit resolution (12 by default)
-#define DAC_MAX_VOLTAGE (2.95) // measured output from PA4 when DAC->DHR12R1 = DAC_MAX_VALUE
-#define OPTO_DEADBAND_END_VOLTAGE (1.0) // voltage needed to overcome diode drops in opto
+#define DAC_MAX_VOLTAGE (2.95) // measured output from PA4 when
+                               // DAC->DHR12R1 = DAC_MAX_VALUE
+#define OPTO_DEADBAND_END_VOLTAGE (1.0) // voltage needed to overcome diode
+                                        // drops in opto
 
 // ----------------------------------------------------------------------------
 //                      PROTOTYPES
@@ -83,26 +86,30 @@ uint32_t applyOptoOffsetToDAC(uint32_t rawDAC);
 float gbl_sigFreq = 0.0;
 float gbl_resistance = 0.0;
 
+// ----------------------------------------------------------------------------
+//                      IMPLEMENTATION
+// ----------------------------------------------------------------------------
+
 int
 main(int argc, char* argv[])
 {
 	trace_printf("Welcome to the final project.\n");
 	if (VERBOSE) trace_printf("System clock: %u Hz\n", SystemCoreClock);
 
-	myGPIOA_Init();		/* Init I/O port PA for input sig, ADC, DAC */
-	myADC_Init();       /* Init ADC for continuous measurement */
-	myDAC_Init();       /* Init DAC to output timer control voltage */
-	myTIM2_Init();		/* Init timer for input sig period measurement */
-	myEXTI_Init();		/* Init EXTI to trigger on input sig waveform edge */
-	LCD_Init();         /* Init LCD communication through SPI & write placeholder */
-	myTIM16_Init();     /* Init & start LCD update timer */
+	myGPIOA_Init();  /* Init I/O port PA for input sig, ADC, DAC */
+	myADC_Init();    /* Init ADC for continuous measurement */
+	myDAC_Init();    /* Init DAC to output timer control voltage */
+	myTIM2_Init();   /* Init timer for input sig period measurement */
+	myEXTI_Init();   /* Init EXTI to trigger on input sig waveform edge */
+	LCD_Init();      /* Init LCD control through SPI & write placeholder */
+	myTIM16_Init();  /* Init & start LCD update timer */
 
     while (1) {
         uint32_t potADCValue = getPotADCValue();
 
-        // Use the ADC value for DAC but offset it to avoid output voltages that lie
-        // in the deadband for the optocoupler (around 0->1V). This will allow all
-        // values of the pot to correspond to a change in timer freq.
+        // Use the ADC value for DAC but offset it to avoid output voltages that
+        // lie in the deadband for the optocoupler (around 0->1V). This will
+        // allow all values of the pot to correspond to a change in timer freq.
         uint32_t timerControlDACValue = applyOptoOffsetToDAC(potADCValue);
 
         // Update the DAC value

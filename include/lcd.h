@@ -1,24 +1,20 @@
 #ifndef __LCD_H
 #define __LCD_H
 
+// ----------------------------------------------------------------------------
+//                      USER CONFIGURATION
+// ----------------------------------------------------------------------------
+
 // Pin configuration, must be on GPIOB
 #define LCD_LCK_PIN (GPIO_Pin_4)
 
-// Maps to EN and RS bits for LCD
-#define LCD_ENABLE (0x80)
-#define LCD_DISABLE (0x0)
-#define LCD_COMMAND (0x0)
-#define LCD_DATA (0x40)
-#define LCD_CURSOR_ON (0x2)
-#define LCD_MOVE_CURSOR_CMD (0x80)
-#define LCD_CLEAR_CMD (0x1)
-#define LCD_FIRST_ROW_OFFSET (0x0)
-#define LCD_SECOND_ROW_OFFSET (0x40)
+// Maps info to LCD rows [1,2]
 #define LCD_FREQ_ROW (1)
 #define LCD_RESISTANCE_ROW (2)
-#define CHAR_OMEGA (0xF4)
-#define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
-#define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
+
+// ----------------------------------------------------------------------------
+//                      PROTOTYPES
+// ----------------------------------------------------------------------------
 
 // Initializes the LCD from a fresh power-on state on the PBMCUSLK.
 // It's a 2x8 character LCD with its input buffered by a shift register.
