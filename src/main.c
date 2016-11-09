@@ -57,8 +57,11 @@
 #else
 #define LCD_UPDATE_PERIOD_MS ((uint32_t)250)
 #endif
-#define MAX_ADC_READ_VALUE (4095.0)
-#define MAX_DISPLAY_RESISTANCE (5000.0)
+#define RESISTANCE_MAX_VALUE (5000.0) // PBMCUSLK uses a 5k pot
+#define ADC_MAX_VALUE ((float)(0xFFF)) // ADC bit resolution (12 by default)
+#define DAC_MAX_VALUE ((float)(0xFFF)) // DAC bit resolution (12 by default)
+#define DAC_MAX_VOLTAGE (2.95) // measured output from PA4 when DAC->DHR12R1 = DAC_MAX_VALUE
+#define OPTO_DEADBAND_END_VOLTAGE (1.0) // voltage needed to overcome diode drops in opto
 
 // ----------------------------------------------------------------------------
 //                      PROTOTYPES
@@ -69,6 +72,9 @@ void myTIM2_Init(void);
 void myTIM16_Init(void);
 void myEXTI_Init(void);
 void myADC_Init(void);
+void myDAC_Init(void);
+uint32_t getPotADCValue(void);
+uint32_t applyOptoOffsetToDAC(uint32_t rawDAC);
 
 // ----------------------------------------------------------------------------
 //                      GLOBAL VARIABLES
@@ -83,32 +89,32 @@ main(int argc, char* argv[])
 	trace_printf("Welcome to the final project.\n");
 	if (VERBOSE) trace_printf("System clock: %u Hz\n", SystemCoreClock);
 
-	myGPIOA_Init();		/* Init I/O port PA for input sig, ADC */
+	myGPIOA_Init();		/* Init I/O port PA for input sig, ADC, DAC */
 	myADC_Init();       /* Init ADC for continuous measurement */
+	myDAC_Init();       /* Init DAC to output timer control voltage */
 	myTIM2_Init();		/* Init timer for input sig period measurement */
 	myEXTI_Init();		/* Init EXTI to trigger on input sig waveform edge */
 	LCD_Init();         /* Init LCD communication through SPI & write placeholder */
 	myTIM16_Init();     /* Init & start LCD update timer */
 
     while (1) {
-        // Poll the ADC for resistance values
-        // Start ADC conversion
-        ADC1->CR |= ADC_CR_ADSTART;
+        uint32_t potADCValue = getPotADCValue();
 
-        // Wait for End Of Conversion flag to be set
-        while (!(ADC1->ISR & ADC_ISR_EOC)) {};
+        // Use the ADC value for DAC but offset it to avoid output voltages that lie
+        // in the deadband for the optocoupler (around 0->1V). This will allow all
+        // values of the pot to correspond to a change in timer freq.
+        uint32_t timerControlDACValue = applyOptoOffsetToDAC(potADCValue);
 
-        // Reset End Of Conversion flag
-        ADC1->ISR &= ~(ADC_ISR_EOC);
-
-        // Read the ADC value
-        uint32_t ADCValue = ((ADC1->DR) & ADC_DR_DATA);
+        // Update the DAC value
+        // DHR12R1: "Data Holding Register, 12b, Right aligned, Channel 1"
+        DAC->DHR12R1 = timerControlDACValue;
 
         // Convert to resistance range
-        gbl_resistance = ((float)ADCValue) / MAX_ADC_READ_VALUE * MAX_DISPLAY_RESISTANCE;
+        float normalizedPotADC = (((float)potADCValue) / ADC_MAX_VALUE);
+        gbl_resistance = normalizedPotADC * RESISTANCE_MAX_VALUE;
 
-        if (VERBOSE) trace_printf("ADC Value: %d\n", ADCValue);
-        if (VERBOSE) trace_printf("Resistance: %f\n\n", gbl_resistance);
+        if (VERBOSE) trace_printf("ADC Value: %d\n", potADCValue);
+        if (VERBOSE) trace_printf("Resistance: %f\n", gbl_resistance);
     }
 
     return 0;
@@ -120,6 +126,7 @@ void myGPIOA_Init()
     // Configure:
     //   PA0 --ana-> Analog in to ADC for resistance
     //   PA1 --in--> Read 555 timer edge transitions
+    //   PA4 --ana-> Analog out from DAC for timer control voltage
 
     /* Enable clock for GPIOA peripheral */
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
@@ -131,6 +138,10 @@ void myGPIOA_Init()
     /* Configure PA1 */
     GPIOA->MODER &= ~(GPIO_MODER_MODER1);  /* Input */
     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR1);  /* No pull up/down */
+
+    /* Configure PA4 */
+    GPIOA->MODER &= ~(GPIO_MODER_MODER4);  /* Analog output */
+    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR4);  /* No pull up/down */
 }
 
 void myTIM2_Init()
@@ -178,6 +189,7 @@ void myTIM16_Init()
     TIM16->EGR = ((uint16_t) 0x0001);
 
     /* Assign TIM16 interrupt priority = 1 in NVIC */
+    /* Will be interrupted by P0 tasks, like edge measurements */
     NVIC_SetPriority(TIM16_IRQn, 1);
 
     /* Enable TIM16 interrupts in NVIC */
@@ -232,6 +244,14 @@ void myADC_Init(){
     ADC1->CR |= ADC_CR_ADEN;
     while (!(ADC1->ISR & ADC_ISR_ADRDY)) {};
     if (VERBOSE) trace_printf("ADC enable finished!\n\n");
+}
+
+void myDAC_Init() {
+    /* Enable clock for DAC */
+    RCC->APB1ENR |= RCC_APB1ENR_DACEN;
+
+    /* Enable DAC */
+    DAC->CR |= DAC_CR_EN1;
 }
 
 /* This handler is declared in system/src/cmsis/vectors_stm32f0xx.c */
@@ -295,6 +315,42 @@ void EXTI0_1_IRQHandler()
 		// clear EXTI interrupt pending flag
 		EXTI->PR |= EXTI_PR_PR1;
 	}
+}
+
+uint32_t getPotADCValue(){
+    // Start ADC conversion
+    ADC1->CR |= ADC_CR_ADSTART;
+
+    // Wait for End Of Conversion flag to be set
+    while (!(ADC1->ISR & ADC_ISR_EOC)) {
+        /* loop until conversion is complete */
+    };
+
+    // Reset End Of Conversion flag
+    ADC1->ISR &= ~(ADC_ISR_EOC);
+
+    // Apply the data mask to the data register
+    return ((ADC1->DR) & ADC_DR_DATA);
+}
+
+uint32_t applyOptoOffsetToDAC(uint32_t rawDAC){
+    // map the DAC value -> voltage range (opto deadband to max output)
+    float normalizedDAC = rawDAC / DAC_MAX_VALUE;
+    float outputVoltageRange = DAC_MAX_VOLTAGE - OPTO_DEADBAND_END_VOLTAGE;
+    float outputVoltage = (normalizedDAC * outputVoltageRange) + OPTO_DEADBAND_END_VOLTAGE;
+
+    // TODO: Add some assertions for the output voltage
+    //   1. voltage >= 0
+    //   2. voltage >= deadband limit
+    //   3. voltage <= max output voltage
+
+    if (VERBOSE) trace_printf("\nOutput voltage: %f", outputVoltage);
+
+    // convert the voltage value back to a DAC level
+    float normalizedOutputVoltage = outputVoltage / DAC_MAX_VOLTAGE;
+    float outputDACValue = normalizedOutputVoltage * DAC_MAX_VALUE;
+
+    return ((uint32_t)outputDACValue);
 }
 
 #pragma GCC diagnostic pop
