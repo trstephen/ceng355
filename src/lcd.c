@@ -92,16 +92,12 @@ void LCD_Init(void){
     //   "  ???  H"
     //   "  ???  Ω"
     LCD_MoveCursor(LCD_FREQ_ROW, 3);
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
+    LCD_SendText("???");
     LCD_MoveCursor(LCD_FREQ_ROW, 8);
     LCD_SendASCIIChar("H");
 
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
-    LCD_SendASCIIChar("?");
+    LCD_SendText("???");
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 8);
     LCD_SendWord(LCD_DATA, CHAR_OMEGA);
 }
@@ -200,8 +196,15 @@ void LCD_SendWord(uint8_t type, uint8_t word){
     HC595_Write(LCD_DISABLE | type | low);
 }
 
-void LCD_SendASCIIChar(char* character){
+void LCD_SendASCIIChar(const char* character){
     LCD_SendWord(LCD_DATA, (uint8_t)(*character));
+}
+
+void LCD_SendText(char* text){
+    const char* ch = text;
+    while(*ch){
+        LCD_SendASCIIChar(ch++);
+    }
 }
 
 void LCD_SendDigit(uint8_t digit){
@@ -301,20 +304,10 @@ void DELAY_Set(uint32_t milliseconds){
 void LCD_UpdateFreq(float freq){
     if (freq < 1) {
         LCD_MoveCursor(LCD_FREQ_ROW, 1);
-        LCD_SendASCIIChar("<");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendDigit(1);
+        LCD_SendText("<    1");
     } else if (freq > 99999) {
         LCD_MoveCursor(LCD_FREQ_ROW, 1);
-        LCD_SendASCIIChar(">");
-        LCD_SendDigit(9);
-        LCD_SendDigit(9);
-        LCD_SendDigit(9);
-        LCD_SendDigit(9);
-        LCD_SendDigit(9);
+        LCD_SendText(">99999");
     } else {
         LCD_UpdateRow(LCD_FREQ_ROW, freq);
     }
@@ -323,12 +316,7 @@ void LCD_UpdateFreq(float freq){
 void LCD_UpdateResistance(float resistance){
     if (resistance < 1) {
         LCD_MoveCursor(LCD_RESISTANCE_ROW, 1);
-        LCD_SendASCIIChar("<");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendASCIIChar(" ");
-        LCD_SendDigit(1);
+        LCD_SendText("<    1");
     } else {
         LCD_UpdateRow(LCD_RESISTANCE_ROW, resistance);
     }

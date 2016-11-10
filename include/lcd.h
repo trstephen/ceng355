@@ -46,11 +46,15 @@ void LCD_SendWord(uint8_t type, uint8_t word);
 
 // Convenience variant of LCD_SendWord that accepts ASCII words
 // @param character: A single character e.g. "H"
-void LCD_SendASCIIChar(char* character);
+void LCD_SendASCIIChar(const char* character);
 
 // Convenience variant of LCD_SendWord that prints single digits 0:9
 // @param digit: An int, 0:9
 void LCD_SendDigit(uint8_t digit);
+
+// Prints all values in the text to the LCD
+// @param text: a null terminated string
+void LCD_SendText(char* text);
 
 // Clears the LCD and injects a 2ms delay to allow the LCD to finish the operation
 void LCD_Clear(void);
