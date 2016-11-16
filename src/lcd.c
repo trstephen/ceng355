@@ -3,6 +3,7 @@
 #include "stm32f0xx_spi.h"
 #include "cmsis/cmsis_device.h"
 #include "diag/Trace.h"
+#include "assert.h"
 #include "lcd.h"
 
 // ----------------------------------------------------------------------------
@@ -11,7 +12,14 @@
 
 #ifndef VERBOSE
 #define VERBOSE 0
-#endif
+#endif // VERBOSE
+
+#ifdef USE_FULL_ASSERT
+#define assert_param(expr) ((expr) ? (void)0 : assert_failed((uint8_t *)__FILE__, __LINE__))
+void assert_failed(uint8_t* file, uint32_t line);
+#else
+#define assert_param(expr) ((void)0)
+#endif // USE_FULL_ASSERT
 
 // Maps to EN and RS bits for LCD
 #define LCD_ENABLE (0x80)
@@ -23,6 +31,10 @@
 #define LCD_CURSOR_ON (0x2)
 #define LCD_MOVE_CURSOR_CMD (0x80)
 #define LCD_CLEAR_CMD (0x1)
+#define LCD_ROW_MIN (1)
+#define LCD_ROW_MAX (2)
+#define LCD_COL_MIN (1)
+#define LCD_COL_MAX (8)
 #define LCD_FIRST_ROW_OFFSET (0x0)
 #define LCD_SECOND_ROW_OFFSET (0x40)
 
@@ -207,45 +219,44 @@ void LCD_SendText(char* text){
     }
 }
 
-void LCD_SendDigit(uint8_t digit){
+void LCD_SendInteger(uint8_t digit){
     // Enforce range of 0:9
-    uint8_t safeDigit = 0;
-    if (digit > 9){
-        safeDigit = 9;
-    } else {
-        safeDigit = digit;
-    }
+    // No check needed for >= 0 since digit is unsigned
+    assert_param(digit <= 9);
 
     // Digits on the ASCII table are mapped like:
     //   0x30 -> 0
     //   0x31 -> 1
     //   ...
     //   0x39 -> 9
-    uint8_t asciiDigit = 0x30 + safeDigit;
+    uint8_t asciiDigit = 0x30 + digit;
 
     LCD_SendWord(LCD_DATA, asciiDigit);
 }
 
 void LCD_MoveCursor(uint8_t row, uint8_t col){
-    // We only have 2 rows so cap the selected row at 2
+    // Check for valid row selection and assign offset
+    assert_param(row >= LCD_ROW_MIN);
+    assert_param(row <= LCD_ROW_MAX);
+
     uint8_t rowOffset = 0x0;
-    if (row <= 1) {
-        rowOffset = LCD_FIRST_ROW_OFFSET;
-    } else {
-        rowOffset = LCD_SECOND_ROW_OFFSET;
+    switch (row) {
+        case 1:
+            rowOffset = LCD_FIRST_ROW_OFFSET;
+            break;
+        case 2:
+            rowOffset = LCD_SECOND_ROW_OFFSET;
+            break;
+        default:
+            break;
     }
 
-    // Similarly, constrain allowed column input values to 1:8
-    // and then shift for 0-indexing on the LCD
-    uint8_t colOffset = 0x0;
-    if (col == 0) {
-        colOffset = 0x0;
-    } else if (col > 0 && col < 8) {
-        colOffset = col - 1;
-    } else {
-        // Constrain >8 to last column
-        colOffset = 0x7;
-    }
+    // Similarly, constrain allowed column input values and then shift for
+    // 0-indexing on the LCD
+    assert_param(col >= LCD_COL_MIN);
+    assert_param(col <= LCD_COL_MAX);
+
+    uint8_t colOffset = col - 1;
 
     uint8_t moveCursorCommand = LCD_MOVE_CURSOR_CMD | rowOffset | colOffset;
 
@@ -362,7 +373,7 @@ void LCD_UpdateRow(uint8_t row, float val){
         if (orderedDigits[i] == LEADING_ZERO_FLAG) {
             LCD_SendASCIIChar(" ");
         } else {
-            LCD_SendDigit(orderedDigits[i]);
+            LCD_SendInteger(orderedDigits[i]);
         }
     }
 }

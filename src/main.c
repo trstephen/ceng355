@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include "diag/Trace.h"
 #include "cmsis/cmsis_device.h"
+#include "assert.h"
 #include "lcd.h"
 
 // ----------------------------------------------------------------------------
@@ -45,7 +46,19 @@
 
 #ifndef VERBOSE
 #define VERBOSE 0
-#endif
+#endif // VERBOSE
+
+#ifdef USE_FULL_ASSERT
+#define assert_param(expr) ((expr) ? (void)0 : assert_failed((uint8_t *)__FILE__, __LINE__))
+void assert_failed(uint8_t* file, uint32_t line);
+#else
+#define assert_param(expr) ((void)0)
+#endif // USE_FULL_ASSERT
+
+#define EPSILON ((float)0.00001)
+#define float_eq(f1, f2) (((f1 - f2) < EPSILON) || ((f2 - f1) < EPSILON))
+#define float_geq(f1, f2) ((f1 > f2) || float_eq(f1, f2))
+#define float_leq(f1, f2) ((f1 < f2) || float_eq(f1, f2))
 
 /* Clock prescalers */
 #define myTIM2_PRESCALER ((uint16_t)0x0000)
@@ -346,10 +359,10 @@ uint32_t applyOptoOffsetToDAC(uint32_t rawDAC){
     float outputVoltageRange = DAC_MAX_VOLTAGE - OPTO_DEADBAND_END_VOLTAGE;
     float outputVoltage = (normalizedDAC * outputVoltageRange) + OPTO_DEADBAND_END_VOLTAGE;
 
-    // TODO: Add some assertions for the output voltage
-    //   1. voltage >= 0
-    //   2. voltage >= deadband limit
-    //   3. voltage <= max output voltage
+    // check that output mapping function produced valid output
+    assert_param(float_geq(outputVoltage, 0.0));
+    assert_param(float_geq(outputVoltage, OPTO_DEADBAND_END_VOLTAGE));
+    assert_param(float_leq(outputVoltage, DAC_MAX_VOLTAGE));
 
     if (VERBOSE) trace_printf("\nOutput voltage: %f", outputVoltage);
 
