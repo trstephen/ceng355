@@ -84,4 +84,7 @@ void LCD_UpdateResistance(float resistance);
 // Write a new value to the specified row, leaving the unit symbol untouched
 void LCD_UpdateRow(uint8_t row, float val);
 
+// Writes custom 5x8 symbols to user-writable CGRAM slots
+void LCD_LoadCustomSymbols(void);
+
 #endif /* __LCD_H */

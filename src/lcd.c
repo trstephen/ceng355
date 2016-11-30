@@ -49,8 +49,8 @@ void assert_failed(uint8_t* file, uint32_t line);
 #define LCD_SECOND_ROW_OFFSET (0x40)
 
 // Positions on the LCD character table
-#define CHAR_OMEGA (0xF4)
-#define HZ_SYMBOL (0x00)
+#define SYMBOL_OMEGA (0xF4)
+#define SYMBOL_HZ (0x00)
 
 #define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
 #define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
@@ -108,7 +108,7 @@ void LCD_Init(void){
     LCD_SendWord(LCD_COMMAND, 0x06);
     LCD_Clear();
 
-    LCD_CustomHzSymbol();
+    LCD_LoadCustomSymbols();
 
     // Write the initial units and resistance / freq placeholders manually
     //   "  ???  H"
@@ -116,12 +116,12 @@ void LCD_Init(void){
     LCD_MoveCursor(LCD_FREQ_ROW, 3);
     LCD_SendText("???");
     LCD_MoveCursor(LCD_FREQ_ROW, 8);
-    LCD_SendWord(LCD_DATA, HZ_SYMBOL);
+    LCD_SendWord(LCD_DATA, SYMBOL_HZ);
 
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
     LCD_SendText("???");
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 8);
-    LCD_SendWord(LCD_DATA, CHAR_OMEGA);
+    LCD_SendWord(LCD_DATA, SYMBOL_OMEGA);
 }
 
 void myGPIOB_Init(void){
@@ -147,8 +147,8 @@ void myGPIOB_Init(void){
     GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
 
-void LCD_CustomHzSymbol(void){
-  char customChar[8] = {
+void LCD_LoadCustomSymbols(void){
+  char hertzPixels[8] = {
     0b10001,
     0b11111,
     0b10001,
@@ -158,19 +158,14 @@ void LCD_CustomHzSymbol(void){
     0b01000,
     0b01110
   };
-  // resets the RS and R/W pins
-  LCD_SendWord(LCD_COMMAND, 0x00);
   // Sets CG RAM address
-  LCD_SendWord(LCD_COMMAND, 0x40);
+  LCD_SendWord(LCD_COMMAND, (0x40 + SYMBOL_HZ));
   // all subsequent data is written and auto incremented to CG RAM address
   //each byte (represeting 1 line of the custom char) is written to byte locations
   //64 to 71 of the CG RAM (Custom Generator Ram)
   for(int a = 0; a < 8; a++){
-    LCD_SendWord(LCD_DATA, customChar[a]);
+    LCD_SendWord(LCD_DATA, hertzPixels[a]);
   }
-  //resets mode back to Command mode,
-  //and moves cursor back to visible part of display
-  LCD_Clear();
 }
 
 void mySPI_Init(void){
