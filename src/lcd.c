@@ -50,6 +50,7 @@ void assert_failed(uint8_t* file, uint32_t line);
 
 // Positions on the LCD character table
 #define CHAR_OMEGA (0xF4)
+#define HZ_SYMBOL (0x00)
 
 #define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
 #define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
@@ -96,7 +97,6 @@ void LCD_Init(void){
     // ensure the LCD is ready to receive the rest of the config.
     LCD_SendWord(LCD_COMMAND, 0x2);
     DELAY_Set(2);
-
     // Now we're in 4b mode we can do the rest of the LCD config
     // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Instruction_set
     // 1. set 4b, 2 line, 5x7 font
@@ -108,13 +108,15 @@ void LCD_Init(void){
     LCD_SendWord(LCD_COMMAND, 0x06);
     LCD_Clear();
 
+    LCD_CustomHzSymbol();
+
     // Write the initial units and resistance / freq placeholders manually
     //   "  ???  H"
     //   "  ???  Ω"
     LCD_MoveCursor(LCD_FREQ_ROW, 3);
     LCD_SendText("???");
     LCD_MoveCursor(LCD_FREQ_ROW, 8);
-    LCD_SendText("H");
+    LCD_SendWord(LCD_DATA, HZ_SYMBOL);
 
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
     LCD_SendText("???");
@@ -143,6 +145,32 @@ void myGPIOB_Init(void){
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStruct.GPIO_PuPd  = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+void LCD_CustomHzSymbol(void){
+  char customChar[8] = {
+    0b10001,
+    0b11111,
+    0b10001,
+    0b01110,
+    0b00010,
+    0b00100,
+    0b01000,
+    0b01110
+  };
+  // resets the RS and R/W pins
+  LCD_SendWord(LCD_COMMAND, 0x00);
+  // Sets CG RAM address
+  LCD_SendWord(LCD_COMMAND, 0x40);
+  // all subsequent data is written and auto incremented to CG RAM address
+  //each byte (represeting 1 line of the custom char) is written to byte locations
+  //64 to 71 of the CG RAM (Custom Generator Ram)
+  for(int a = 0; a < 8; a++){
+    LCD_SendWord(LCD_DATA, customChar[a]);
+  }
+  //resets mode back to Command mode,
+  //and moves cursor back to visible part of display
+  LCD_Clear();
 }
 
 void mySPI_Init(void){
