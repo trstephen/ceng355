@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "stm32f0xx_gpio.h"
 #include "stm32f0xx_rcc.h"
 #include "stm32f0xx_spi.h"
@@ -5,6 +6,15 @@
 #include "diag/Trace.h"
 #include "assert.h"
 #include "lcd.h"
+
+// ----------------------------------------------------------------------------
+//                      STRUCTS
+// ----------------------------------------------------------------------------
+typedef struct metricFloat {
+    float value;
+    uint32_t multiplier;
+    char* prefix;
+} metricFloat;
 
 // ----------------------------------------------------------------------------
 //                      DEFINES
@@ -41,8 +51,6 @@ void assert_failed(uint8_t* file, uint32_t line);
 // Positions on the LCD character table
 #define CHAR_OMEGA (0xF4)
 
-#define LEADING_ZERO_FLAG (69)
-#define DIGITS_TO_WRITE (5)
 #define DELAY_PRESCALER_1KHZ (47999) /* 48 MHz / (47999 + 1) = 1 kHz */
 #define DELAY_PERIOD_DEFAULT (100) /* 100 ms */
 
@@ -106,7 +114,7 @@ void LCD_Init(void){
     LCD_MoveCursor(LCD_FREQ_ROW, 3);
     LCD_SendText("???");
     LCD_MoveCursor(LCD_FREQ_ROW, 8);
-    LCD_SendASCIIChar("H");
+    LCD_SendText("H");
 
     LCD_MoveCursor(LCD_RESISTANCE_ROW, 3);
     LCD_SendText("???");
@@ -315,10 +323,10 @@ void DELAY_Set(uint32_t milliseconds){
 void LCD_UpdateFreq(float freq){
     if (freq < 1) {
         LCD_MoveCursor(LCD_FREQ_ROW, 1);
-        LCD_SendText("<    1");
-    } else if (freq > 99999) {
+        LCD_SendText("<1.000 ");
+    } else if (freq > 999999999.9) {
         LCD_MoveCursor(LCD_FREQ_ROW, 1);
-        LCD_SendText(">99999");
+        LCD_SendText(">999.9M");
     } else {
         LCD_UpdateRow(LCD_FREQ_ROW, freq);
     }
@@ -327,53 +335,51 @@ void LCD_UpdateFreq(float freq){
 void LCD_UpdateResistance(float resistance){
     if (resistance < 1) {
         LCD_MoveCursor(LCD_RESISTANCE_ROW, 1);
-        LCD_SendText("<    1");
+        LCD_SendText("<1.000 ");
     } else {
         LCD_UpdateRow(LCD_RESISTANCE_ROW, resistance);
     }
 }
 
 void LCD_UpdateRow(uint8_t row, float val){
-    // We have five characters to write to (8 less one for > or <, one for
-    // metric scale, and one for unit symbol) and we'll be displaying ints so
-    // our display range is 1 -> 99999.
-    // We also want to avoid displaying leading 0s.
+    // Determine the metric prefix to use
+    metricFloat metricVal;
 
-    uint32_t intVal = (uint32_t)val;
-
-    uint8_t ones = intVal % 10;
-    uint8_t tens = (intVal / 10) % 10;
-    uint8_t hundreds = (intVal / 100) % 10;
-    uint8_t thousands = (intVal / 1000) % 10;
-    uint8_t tenThousands = (intVal / 10000) % 10;
-
-    uint8_t orderedDigits[DIGITS_TO_WRITE] = {
-            tenThousands,
-            thousands,
-            hundreds,
-            tens,
-            ones
-    };
-
-    // Flag leading zeroes with number outside [0-9] range
-    for (int i = 0; i < DIGITS_TO_WRITE; i++) {
-        if (orderedDigits[i] != 0) {
-            // Stop searching after we find the first non-zero number.
-            // Since range is >= 1 this is guaranteed to occur
-            break;
-        } else {
-            orderedDigits[i] = LEADING_ZERO_FLAG;
-        }
+    // We assume val >= 1.0
+    if (val < 999.9) {
+        metricVal.prefix = " ";
+        metricVal.multiplier = 1;
+    } else if (val < 999999.9) {
+        metricVal.prefix = "k";
+        metricVal.multiplier = 1000;
+    } else if (val < 999999999.9) {
+        metricVal.prefix = "M";
+        metricVal.multiplier = 1000 * 1000;
     }
 
-    // Print the values to the LCD
+    // Scale val for metric representation
+    metricVal.value = val / metricVal.multiplier;
+
+    // Determine number of decimal places to display by removing the part of
+    // the number greater than 0 from the total number of available columns.
+    // The remainder will go to the decimal;
+    // TODO: Dynamically determine precision range from LCD_MAX_DIGIT_COLS
+    char* floatPrecisionFormat;
+    if (metricVal.value < 10) {
+        floatPrecisionFormat = "%.3f"; // 1.234
+    } else if (metricVal.value < 100) {
+        floatPrecisionFormat = "%.2f"; // 12.34
+    } else {
+        floatPrecisionFormat = "%.1f"; // 123.4
+    }
+
+    // Convert our float to a printable string
+    // Allocate size for all digits + decimal
+    char printableVal[LCD_MAX_DIGIT_COLS + 1];
+    sprintf(printableVal, floatPrecisionFormat, metricVal.value);
+
     LCD_MoveCursor(row, 1);
-    LCD_SendASCIIChar(" "); // overwrite over/under range flag
-    for (int i = 0; i < DIGITS_TO_WRITE; i++) {
-        if (orderedDigits[i] == LEADING_ZERO_FLAG) {
-            LCD_SendASCIIChar(" ");
-        } else {
-            LCD_SendInteger(orderedDigits[i]);
-        }
-    }
+    LCD_SendText(" "); // overwrite over/under range symbol
+    LCD_SendText(printableVal);
+    LCD_SendText(metricVal.prefix);
 }

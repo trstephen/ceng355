@@ -11,6 +11,8 @@
 // Maps info to LCD rows [1,2]
 #define LCD_FREQ_ROW (1)
 #define LCD_RESISTANCE_ROW (2)
+// digits that can be displayed on LCD, not including decimal
+#define LCD_MAX_DIGIT_COLS (4)
 
 // ----------------------------------------------------------------------------
 //                      PROTOTYPES
