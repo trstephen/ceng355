@@ -11,3 +11,5 @@ Complete code for a microcontroller that
 1. Displays controller resistance (determined from input voltage) and timer frequency on an LCD
 
 ![system](docs/graphics/system_blocks.png)
+
+Overly detailed design summary is [here](./docs/report/report.pdf)

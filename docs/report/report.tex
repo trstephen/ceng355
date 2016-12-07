@@ -1,0 +1,187 @@
+%----------------------------------------------------------------------------
+%----------------------------------------------------------------------------
+%				    	SETUP
+%----------------------------------------------------------------------------
+%----------------------------------------------------------------------------
+
+\documentclass[11pt]{article}
+
+%----------------------------------------------------------------------------
+%			  	   PACKAGES
+%----------------------------------------------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% 	  Packages
+%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Fonts and Symbols
+%% --------------------------
+\usepackage{
+	amsmath,			% math operators
+	amssymb,			% math symbols
+	courier,			% better tt font for listings
+	soul,				% strike through with \st{}
+	url,				% embed urls in text
+	xcolor,				% color!
+%	xfrac,				% fancy fractions
+}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\definecolor{darkblue}{rgb}{0,0,0.4}
+
+
+% preserve default font for URLs
+\renewcommand*{\UrlFont}{\rmfamily}		
+
+%% Graphics
+%% --------------------
+\usepackage{
+	graphicx,			% allows insertion of images
+	subfigure,			% allows subfigures (a), (b), etc.
+}				
+\graphicspath{ {../graphics/} }	% (graphicx) relative path to graphics folder				
+
+%% Tables
+%% --------------------------
+\usepackage{
+	booktabs,			% better tables, discourages vertical rulings
+	multicol,			% allow multi columns
+}
+
+%% Layout Alteration
+%% --------------------------
+\usepackage{			
+%	caption,			% line breaks in captions with \\
+%	changepage,	  % change margins for PARTS of pages with (adjustwidth)
+	geometry,			% change the margins for specific PAGES
+	parskip,			% disable indents
+	rotating,			% sideways figures
+	setspace,			% single, double spacing
+}
+\geometry{	   	% specify page size options for (geometry)
+	a4paper, 			% paper size
+	hmargin=1in,  % horizontal margins
+	vmargin=1in,  % vertical margins
+}	
+
+
+%% Units
+%% --------------------------
+\usepackage{
+	siunitx,			% has S (decimal align) column type
+}
+\sisetup{input-symbols = {()},  % do not treat "(" and ")" in any special way
+	group-digits  = false, 	% no grouping of digits
+%	load-configurations = abbreviations,
+%	per-mode = symbol,
+}
+
+%% Misc
+%% --------------------------
+\usepackage{
+	enumitem,			% better control of enumerations, descriptions, etc
+	listings,			% source code import and display
+	todonotes,			% gives \todo[inline]{stuff} and \missingfigure{description}
+}
+
+\lstset{ %
+  language=C,				% the language of the code
+  basicstyle=\footnotesize\ttfamily,% the size of the fonts that are used for the code
+  numbers=left,                   % where to put the line-numbers
+  numberstyle=\tiny\color{mygray},% the style that is used for the line-numbers
+  stepnumber=1,                   % the step between two line-numbers. If it's 1, each line
+                                  %   will be numbered
+  numbersep=5pt,                  % how far the line-numbers are from the code
+  backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
+  showspaces=false,               % show spaces adding particular underscores
+  showstringspaces=false,         % underline spaces within strings
+  showtabs=false,                 % show tabs within strings adding particular underscores
+  frame=single,	                  % box the code [single, none]
+  rulecolor=\color{black},        % if not set, the frame-color may be changed on line-breaks
+                                  %   within not-black text (e.g. comments (green here))
+  tabsize=4,                      % sets default tabsize to 2 spaces
+  captionpos=b,                   % sets the caption-position to bottom
+  breaklines=true,                % sets automatic line breaking
+  breakatwhitespace=false,        % sets if automatic breaks should only happen at whitespace
+  inputpath=../../,             % relative path to code
+  title=\lstname,                 % show the filename of files included with \lstinputlisting;
+                                  %   also try caption instead of title
+  keywordstyle=[1]\bfseries\color{darkblue},    % keyword style for mnemonics
+  keywordstyle=[2]\bfseries\color{violet},	% keyword style for . mnemonics
+  commentstyle=\color{mygray},   % comment style
+  stringstyle=\color{mymauve},    % string literal style
+  escapeinside={\%*}{*)},         % if you want to add a comment within your code
+  morekeywords={*,...}           	% if you want to add more keywords to the set
+}
+
+%% References
+%% --------------------------
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{report.bib}
+
+%----------------------------------------------------------------------------
+%		     MACROS AND COMMANDS
+%----------------------------------------------------------------------------
+
+% Defines a new command for the horizontal lines, change thickness here
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} 
+
+% Set up page numbering for appendices as (Appendix Letter) - (Page Number)
+\providecommand{\StartAppendices}{
+  \newpage
+  \newcounter{AppendixCounter}
+  \renewcommand{\thepage}{\Alph{AppendixCounter} \textendash\ \arabic{page}}
+}
+
+% Manually construct the section title for each appendix and then
+% add an entry to the ToC
+\providecommand{\Appendix}[1]{
+  \newpage
+  \stepcounter{AppendixCounter}
+  \setcounter{page}{1}
+  \section*{Appendix \Alph{AppendixCounter}\quad #1}
+  \addtocontents{toc}{\protect\contentsline{section}%
+    {Appendix \Alph{AppendixCounter}\quad #1}{}}
+  % \protect preserves the spacing in the ToC
+}
+
+% Make a blank line so the TA can fill in marks on the title page
+\providecommand{\markline}{\rule{1cm}{0.5pt}}
+
+%----------------------------------------------------------------------------
+%----------------------------------------------------------------------------
+%				   DOCUMENT
+%----------------------------------------------------------------------------
+%----------------------------------------------------------------------------
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% 	  Title Page
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{sections/titlepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%		  Main Body
+%%%%%%%%%%%%%%%%%%%%%%%
+\doublespacing
+\input{sections/problem_description}
+\input{sections/design_solution}
+\input{sections/tests}
+\input{sections/discussion}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% 	  Referrences
+%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\printbibliography[heading=bibintoc,title={References}]
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% 	  Back Matter
+%%%%%%%%%%%%%%%%%%%%%%%
+\StartAppendices{}
+\input{sections/appendix_source_code}
+
+\end{document}

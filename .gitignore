@@ -1,6 +1,21 @@
+# Eclipse project files and build directories
 .metadata
 .settings
 .cproject
 .project
 /Debug/
 /Verbose Debug/
+
+# Latex compile output
+*.aux
+*.bbl
+*.blg
+*.lof
+*.log
+*.lot
+*.gz
+*.toc
+*.xml
+*.bst
+*-blx.bib
+*.bcf

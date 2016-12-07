@@ -58,6 +58,10 @@ void LCD_SendInteger(uint8_t digit);
 // @param text: a null terminated string
 void LCD_SendText(char* text);
 
+// Prints all values in the text to the LCD
+// @param text: a null terminated string
+void LCD_SendText(char* text);
+
 // Clears the LCD and injects a 2ms delay to allow the LCD to finish the operation
 void LCD_Clear(void);
 
